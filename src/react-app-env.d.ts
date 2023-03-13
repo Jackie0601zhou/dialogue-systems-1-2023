@@ -53,6 +53,8 @@ interface SDSContext {
   username:any;
   entities:any;
   topIntent:any;
+  help:any;
+  counter:number;
 }
 
 type SDSEvent =
