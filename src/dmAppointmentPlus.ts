@@ -286,7 +286,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             target:".notmatch"
           },
         ],     
-        TIMEOUT: "welcome_timeout",
+        TIMEOUT: "timeout",
       },
       states:{
         prompt:{
