@@ -1,11 +1,11 @@
 
 import { MachineConfig, send, Action, assign } from "xstate";
+import { actions } from "xstate";
 import { createMachine } from 'xstate';
-
+const {choose, log} = actions
 function say(text: string): Action<SDSContext, SDSEvent> {
   return send((_context: SDSContext) => ({ type: "SPEAK", value: text}));
 }
-
 
 interface Grammar {
   [index: string]: {
@@ -225,6 +225,19 @@ const grammar: Grammar = {
     intent: "ask a 'who is' question",
     entities: { answerperson: "ask a 'who is' question" },
   },
+  "help": {
+    intent: "None",
+    entities: { help: "help"},
+  },
+};
+const setEntity_counter = (context: SDSContext) => {
+  if (context.counter == null ){
+      context.counter = 0
+  }
+  console.log("counter before increment: ", context.counter);
+  context.counter += 1;
+  console.log("counter after increment: ", context.counter);
+  return context.counter;
 };
 
 
@@ -272,24 +285,42 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             }), 
           },
           {
+            target: "welcome_help",
+            cond: (context) =>  !!getEntity(context,"help"),
+            actions: assign({
+              help:(context) => getEntity(context,"help"),
+            }), 
+          },
+          {
             target:".notmatch"
           },
-        ],
-        TIMEOUT:".prompt",
+        ],     
+        TIMEOUT: "welcome_timeout",
       },
       states:{
         prompt:{
           entry: say("Hello Jackie! Would you like to create a meeting or ask about someone?"),
           on:{ENDSPEECH:"ask"},
-        },
+        },      
         ask:{
           entry:send ("LISTEN"),
         },
+        hist: {
+          type: "history",
+          history: "deep"
+         },
         notmatch:{
           entry:say("Sorry I don't understand. Would you like to create a meeting or ask about someone?"),
           on:{ENDSPEECH:"ask"},
         },
       },
+    },
+    welcome_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'You can say create a meeting or ask about someone.',
+      })),
+      on: { ENDSPEECH: "welcome" }, // go back to previous state
     },
     Meeting: {
       entry: say("Ok!"),
@@ -312,11 +343,18 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             })
               
             },
+            {
+              target: "WhoIsX_help",
+              cond: (context) =>  !!getEntity(context,"help"),
+              actions: assign({
+                help:(context) => getEntity(context,"help"),
+              }), 
+            },
           {
             target: ".notmatch",
           },
-        ],
-        TIMEOUT: ".prompt",
+        ],   
+        TIMEOUT: "timeout"
       },
       states: {
         info: {
@@ -366,6 +404,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
         },
       },
     },
+    WhoIsX_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'You can say a name whom you want to know.',
+      })),
+      on: { ENDSPEECH: "WhoIsX" }, // go back to previous state
+    },
     meetX: {
       id:"meetX",
       initial: "prompt",
@@ -386,10 +431,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             }), 
           },
           {
+            target: "meetX_help",
+            cond: (context) =>  !!getEntity(context,"help"),
+            actions: assign({
+              help:(context) => getEntity(context,"help"),
+            }), 
+          },
+          {
             target: ".notmatch",
           },
         ],
-        TIMEOUT: ".prompt",
+        TIMEOUT:"timeout"
       },
       states: {
         prompt: {
@@ -405,7 +457,18 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
           ),
           on: {ENDSPEECH: "prompt"},
         },
+        help: {
+          entry: say("If you want to meet them you can say yes."),
+          on: { ENDSPEECH: "#root.dm.meetX.prompt" }, // go back to previous state
+        },
       },
+    },
+    meetX_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'If you want to meet them you can say yes.',
+      })),
+      on: { ENDSPEECH: "meetX" }, // go back to previous state
     },
     refusemeeting: {
       entry: say("OK!"),
@@ -430,15 +493,24 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             }),
           },
           {
+            target: "createmeeting_help",
+            cond: (context) =>  !!getEntity(context,"help"),
+            actions: assign({
+              help:(context) => getEntity(context,"help"),
+            }), 
+          },
+          {
             target: ".notmatch",
           },
         ],
-        TIMEOUT: ".prompt",
+        TIMEOUT: "timeout"
+        
       },
       states: {
         prompt: {
           entry: say("Let's create a meeting. What is it about?"),
           on: { ENDSPEECH: "ask" },
+
         },
         ask: {
           entry: send("LISTEN"),
@@ -450,6 +522,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
           on: { ENDSPEECH: "ask" },
         },
       },
+    },
+    createmeeting_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'you can say the title of your meeting.',
+      })),
+      on: { ENDSPEECH: "createmeeting" }, // go back to previous state
     },
     info: {
       entry: send((context) => ({
@@ -470,15 +549,23 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             }), 
           },
           {
+            target: "askDate_help",
+            cond: (context) =>  !!getEntity(context,"help"),
+            actions: assign({
+              help:(context) => getEntity(context,"help"),
+            }), 
+          },
+          {
             target: ".notmatch",
           },
         ],
-        TIMEOUT: ".prompt",
+        TIMEOUT:"timeout"
       },
       states: {
         prompt: {
           entry: say("On which day is the meeting?"),
           on: { ENDSPEECH: "ask" },
+
         },
         ask: {
           entry: send("LISTEN"),
@@ -490,6 +577,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
           on: { ENDSPEECH: "ask" },
         },
       },
+    },
+    askDate_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'When is the meeting? Today? Tomorrow? Or Friday?',
+      })),
+      on: { ENDSPEECH: "askDate" }, // go back to previous state
     },
     day: {
       entry: send((context) => ({
@@ -517,10 +611,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             }), 
           },
           {
+            target: "isWholeDay_help",
+            cond: (context) =>  !!getEntity(context,"help"),
+            actions: assign({
+              help:(context) => getEntity(context,"help"),
+            }), 
+          },
+          {
             target: ".notmatch",
           },
         ],
-        TIMEOUT: ".prompt",
+        TIMEOUT: "timeout"
       },
       states: {
         prompt: {
@@ -537,6 +638,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
           on: { ENDSPEECH: "ask" },
         },
       },
+    },
+    isWholeDay_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'If your meeting will take the whole day, you can say yes.',
+      })),
+      on: { ENDSPEECH: "isWholeDay" }, // go back to previous state
     },
     negative: {
       entry: say("Not for the whole day."),
@@ -568,7 +676,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             target: ".notmatch",
           },
         ],
-        TIMEOUT: ".prompt",
+        TIMEOUT: "timeout"
       },
       states: {
         prompt: {
@@ -609,10 +717,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             }), 
           },
           {
+            target: "Time_help",
+            cond: (context) =>  !!getEntity(context,"help"),
+            actions: assign({
+              help:(context) => getEntity(context,"help"),
+            }), 
+          },
+          {
             target: ".notmatch",
           },
         ],
-        TIMEOUT: ".prompt",
+        TIMEOUT: "timeout"
       },
       states: {
         prompt: {
@@ -629,6 +744,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
           on: { ENDSPEECH: "ask" },
         },
       },
+    },
+    Time_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'What time is your meeting? 3PM or in the afternoon?',
+      })),
+      on: { ENDSPEECH: "Time" }, // go back to previous state
     },
     time: {
       entry: send((context) => ({
@@ -656,10 +778,17 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             }), 
           },
           {
+            target: "meetConfirm_help",
+            cond: (context) =>  !!getEntity(context,"help"),
+            actions: assign({
+              help:(context) => getEntity(context,"help"),
+            }), 
+          },
+          {
             target: ".notmatch",
           },
         ],
-        TIMEOUT: ".prompt",
+        TIMEOUT: "timeout"
       },
       states: {
         prompt: {
@@ -680,6 +809,13 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
         },
       },
     },
+    meetConfirm_help: {
+      entry: send((context) =>({
+        type:"SPEAK",
+        value:'If all the information is correct, you can say yes.',
+      })),
+      on: { ENDSPEECH: "meetConfirm" }, // go back to previous state
+    },
     meetingcreated: {
       entry: say('OK! Your meeting has been created!'),
       on: { ENDSPEECH: "init" },
@@ -688,9 +824,35 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
       entry: say("ok!, starting over!"),
       on: { ENDSPEECH: "welcome" },
     },
+    timeout: {
+      entry: say("Sorry, I didn't hear you. Please speak louder or check your microphone."),
+      on: {
+        ENDSPEECH: [
+          {
+            target: "init",
+            cond: (context) => (context.counter) == 3,
+          },
+          {
+            target: "welcome.hist",
+            actions: choose([
+              {
+                cond: (context) => context.counter == null,
+                actions: assign({
+                  counter: (context) => 0
+                }),
+              },
+              {
+                cond: (context) => context.counter != null,
+                actions: assign({ counter: (context) => context.counter +1 
+                }),
+              }
+            ]),
+          },
+        ]
+      }
+    },
   },
 };
-
 
 const kbRequest = (text: string) =>
   fetch(
@@ -701,5 +863,3 @@ const kbRequest = (text: string) =>
             
             
             
-            
-      
