@@ -230,15 +230,6 @@ const grammar: Grammar = {
     entities: { help: "help"},
   },
 };
-const setEntity_counter = (context: SDSContext) => {
-  if (context.counter == null ){
-      context.counter = 0
-  }
-  console.log("counter before increment: ", context.counter);
-  context.counter += 1;
-  console.log("counter after increment: ", context.counter);
-  return context.counter;
-};
 
 
 const getEntity = (context: SDSContext, entity: string) => {
