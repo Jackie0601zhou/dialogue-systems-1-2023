@@ -4,7 +4,7 @@ import * as ReactDOM from "react-dom";
 import { createMachine, assign, actions, State } from "xstate";
 import { useMachine } from "@xstate/react";
 import { inspect } from "@xstate/inspect";
-import { dmMachine } from "./dmAppointment";
+import { dmMachine } from "./dmAppointment"
 
 import createSpeechRecognitionPonyfill from "web-speech-cognitive-services/lib/SpeechServices/SpeechToText";
 import createSpeechSynthesisPonyfill from "web-speech-cognitive-services/lib/SpeechServices/TextToSpeech";
@@ -147,7 +147,16 @@ const machine = createMachine(
               },
               inprogress: {},
               match: {
-                entry: send("RECOGNISED"),
+                invoke: {
+                  id: "getIntents",
+                  src: (context) => getIntents(context),
+                  onDone: {
+                    actions: ["assignIntents", "sendRecognised"],
+                  },
+                  onError: {
+                    actions: "sendRecognised",
+                  },
+                },
               },
               pause: {
                 entry: "recStop",
@@ -196,6 +205,12 @@ const machine = createMachine(
         recResult: (_context, event: any) => event.value,
       }),
       sendEndspeech: send("ENDSPEECH"),
+      assignIntents: assign({
+        nluResult: (_context, event: any) => {
+          return event.data.result;
+        },
+      }),
+      sendRecognised: send("RECOGNISED"),
       recLogResult: (context: SDSContext) => {
         console.log("U>", context.recResult[0]["utterance"], {
           confidence: context.recResult[0]["confidence"],
@@ -267,6 +282,14 @@ function App({ domElement }: any) {
       ttsLexicon: domElement.getAttribute("data-tts-lexicon"),
       asrLanguage: domElement.getAttribute("data-asr-language") || "en-US",
       azureKey: domElement.getAttribute("data-azure-key"),
+      azureNLUKey: domElement.getAttribute("data-azure-nlu-key"),
+      azureNLUUrl: domElement.getAttribute("data-azure-nlu-url"),
+      azureNLUprojectName: domElement.getAttribute(
+        "data-azure-nlu-project-name"
+      ),
+      azureNLUdeploymentName: domElement.getAttribute(
+        "data-azure-nlu-deployment-name"
+      ),
     },
   };
   const [state, send] = useMachine(machine, {
@@ -355,6 +378,35 @@ const getAuthorizationToken = (azureKey: string) =>
       },
     })
   ).then((data) => data.text());
+
+const getIntents = (context: SDSContext) =>
+  fetch(
+    new Request(context.parameters.azureNLUUrl, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": context.parameters.azureNLUKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        kind: "Conversation",
+        analysisInput: {
+          conversationItem: {
+            id: "PARTICIPANT_ID_HERE",
+            text: context.recResult[0].utterance,
+            modality: "text",
+            language: context.parameters.asrLanguage,
+            participantId: "PARTICIPANT_ID_HERE",
+          },
+        },
+        parameters: {
+          projectName: context.parameters.azureNLUprojectName,
+          verbose: true,
+          deploymentName: context.parameters.azureNLUdeploymentName,
+          stringIndexType: "TextElement_V8",
+        },
+      }),
+    })
+  ).then((data) => data.json());
 
 const rootElement = document.getElementById("speechstate");
 ReactDOM.render(<App domElement={rootElement} />, rootElement);
