@@ -132,7 +132,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
         RECOGNISED: [
           {
             target: ".getInfo",
-            actions: assign({type: context => {return context.recResult[0].utterance},
+            actions: assign({type:context => {return context.recResult[0].utterance},
             }),
           },
           {
@@ -145,7 +145,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
         getInfo: {
           invoke: {
             id: 'getInfo',
-            src: (context, event) => kbRequest(context.whois),
+            src: (context, event) => kbRequest(context.type),
             onDone: [{
               target: 'success',
               cond: (context, event) => event.data.Abstract !== "",
@@ -236,7 +236,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
     acceptmeeting: {
       entry: [
         say("OK! Let's schedule a meeting!"),
-        assign((context) => ({title: `meeting with ${context.whois.replace(/\.$/g, "")}`}))
+        assign((context) => ({type: `meeting with ${context.type}`}))
       ],
       on: { ENDSPEECH: "askDate" },
       },
@@ -248,7 +248,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
             target: "info",
             cond: (context) => getIntent(context) === "meeting" && getEntity(context) != false,
             actions: assign({
-              title: (context) => getEntity(context, "title"),
+              type: (context) => getEntity(context, "title"),
             }),
           },
           {
@@ -276,7 +276,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
     info: {
       entry: send((context) => ({
         type: "SPEAK",
-        value: `OK, ${context.title}`,
+        value: `OK, ${context.type}`,
       })),
       on: { ENDSPEECH: "askDate" },
       },
@@ -424,7 +424,7 @@ export const dmMachine: MachineConfig<SDSContext, any, SDSEvent> = {
         prompt: {
           entry: send((context) => ({
             type: "SPEAK",
-            value: `Do you want me to create a meeting titled ${context.title}, on ${context.date} at ${context.time}?`,
+            value: `Do you want me to create a meeting titled ${context.type}, on ${context.date} at ${context.time}?`,
           })),
           on: { ENDSPEECH: "ask" },
         },
